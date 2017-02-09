@@ -155,11 +155,11 @@ public class S3TimeBasedRollingPolicy<E> extends TimeBasedRollingPolicy<E> imple
 
     private void waitForAsynchronousJobToStop() {
 
-        if (future != null) {
+        if (compressionFuture != null) {
 
             try {
 
-                future.get( CoreConstants.SECONDS_TO_WAIT_FOR_COMPRESSION_JOBS, TimeUnit.SECONDS );
+                compressionFuture.get( CoreConstants.SECONDS_TO_WAIT_FOR_COMPRESSION_JOBS, TimeUnit.SECONDS );
             }
             catch (TimeoutException e) {
 
