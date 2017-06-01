@@ -40,6 +40,7 @@ public class S3TimeBasedRollingPolicy<E> extends TimeBasedRollingPolicy<E> imple
     private String           awsSecretKey;
     private String           s3BucketName;
     private String           s3FolderName;
+    private String           s3Endpoint;
     private ShutdownHookType shutdownHookType;
     private boolean          rolloverOnExit;
     private boolean          prefixTimestamp;
@@ -72,8 +73,8 @@ public class S3TimeBasedRollingPolicy<E> extends TimeBasedRollingPolicy<E> imple
         lastPeriod = getLastPeriod();
 
         //Init S3 client
-        s3Client = new AmazonS3ClientImpl( getAwsAccessKey(), getAwsSecretKey(), getS3BucketName(), getS3FolderName(), isPrefixTimestamp(),
-                isPrefixIdentifier() );
+        s3Client = new AmazonS3ClientImpl( getAwsAccessKey(), getAwsSecretKey(), getS3BucketName(), getS3FolderName(), getS3Endpoint(), isPrefixTimestamp(),
+                isPrefixIdentifier());
 
         if (isPrefixIdentifier()) {
 
@@ -257,6 +258,16 @@ public class S3TimeBasedRollingPolicy<E> extends TimeBasedRollingPolicy<E> imple
     public void setS3FolderName(String s3FolderName) {
 
         this.s3FolderName = s3FolderName;
+    }
+
+    public String getS3Endpoint() {
+
+        return s3Endpoint;
+    }
+
+    public void setS3Endpoint(String s3Endpoint) {
+
+        this.s3Endpoint = s3Endpoint;
     }
 
     public boolean isRolloverOnExit() {

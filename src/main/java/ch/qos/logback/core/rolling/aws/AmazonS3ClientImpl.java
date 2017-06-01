@@ -22,6 +22,9 @@ import ch.qos.logback.core.rolling.util.IdentifierUtil;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.S3ClientOptions;
+import com.amazonaws.util.StringUtils;
+
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -43,6 +46,7 @@ public class AmazonS3ClientImpl implements RollingPolicyShutdownListener {
     private final String awsSecretKey;
     private final String s3BucketName;
     private final String s3FolderName;
+    private final String s3Endpoint;
 
     private final boolean prefixTimestamp;
     private final boolean prefixIdentifier;
@@ -52,13 +56,14 @@ public class AmazonS3ClientImpl implements RollingPolicyShutdownListener {
     private AmazonS3Client  amazonS3Client;
     private ExecutorService executor;
 
-    public AmazonS3ClientImpl(String awsAccessKey, String awsSecretKey, String s3BucketName, String s3FolderName, boolean prefixTimestamp,
+    public AmazonS3ClientImpl(String awsAccessKey, String awsSecretKey, String s3BucketName, String s3FolderName, String s3Endpoint, boolean prefixTimestamp,
                               boolean prefixIdentifier) {
 
         this.awsAccessKey = awsAccessKey;
         this.awsSecretKey = awsSecretKey;
         this.s3BucketName = s3BucketName;
         this.s3FolderName = s3FolderName;
+        this.s3Endpoint = s3Endpoint;
 
         this.prefixTimestamp = prefixTimestamp;
         this.prefixIdentifier = prefixIdentifier;
@@ -86,6 +91,15 @@ public class AmazonS3ClientImpl implements RollingPolicyShutdownListener {
 
                 AWSCredentials cred = new BasicAWSCredentials( getAwsAccessKey(), getAwsSecretKey() );
                 amazonS3Client = new AmazonS3Client( cred );
+            }
+
+            if(!StringUtils.isNullOrEmpty(getS3Endpoint()) && !getS3Endpoint().equals("S3_ENDPOINT_IS_UNDEFINED")) {
+                amazonS3Client.setEndpoint(getS3Endpoint());
+
+                // this allows us to point the client to http://endpoint/bucketname instead of http://bucketname.endpoint
+                // which fits perfectly to minio.
+                final S3ClientOptions clientOptions = S3ClientOptions.builder().setPathStyleAccess(true).build();
+                amazonS3Client.setS3ClientOptions(clientOptions);
             }
         }
 
@@ -198,6 +212,11 @@ public class AmazonS3ClientImpl implements RollingPolicyShutdownListener {
     public String getS3FolderName() {
 
         return s3FolderName;
+    }
+
+    public String getS3Endpoint() {
+
+        return s3Endpoint;
     }
 
     public boolean isPrefixTimestamp() {
