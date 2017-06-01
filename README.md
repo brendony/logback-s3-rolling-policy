@@ -85,6 +85,7 @@ Whether you implement one of any available S3 policies, the following extra vari
 There are few optional variables:
 
 * `s3FolderName` The S3 folder name in your S3 bucket to put the log files in. This variable supports dates, just put your [pattern](https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html) between `%d{}`. Example: `%d{yyyy/MM/dd}`.
+* `s3Endpoint` The endpoint to use. If you want to store the logs somewhere different than AWS S3 you need to provide this. Example value: `http://minio-host:9000`
 * `shutdownHookType` Defines which type of shutdown hook you want to use. This variable is mandatory when you use `rolloverOnExit`. Defaults to `NONE`. Possible values are:
   * `NONE` This will not add a shutdown hook. Please note that your most up to date log file won't be uploaded to S3!
   * `JVM_SHUTDOWN_HOOK` This will add a runtime shutdown hook. If you're using a webapplication, please use the `SERVLET_CONTEXT`, as the JVM shutdown hook is not really safe to use here.
@@ -197,3 +198,14 @@ This project uses the following libraries:
 * `com.google.guava:guava:18.0`
 * `javax.servlet:servlet-api:2.4` (scope provided)
 * `org.jetbrains:annotations:7.0.2` (scope provided)
+
+Publish to Artifactory
+----------------------
+
+For now we only have a manual way to publish this to Artifactory
+
+* raise the `<version>` number in the `pom.xml`
+* go to your local repo directory
+* (install maven)
+* execute `mvn package` (this adds a jar file to the /target folder)
+* upload the created package to Artifactory by hand (make sure to check `Generate Default POM / Deploy Jar's Internal POM` when uploading)
