@@ -154,16 +154,16 @@ public class S3TimeBasedRollingPolicy<E> extends TimeBasedRollingPolicy<E> imple
         s3Client.doShutdown();
     }
 
-	private void waitForAsynchronousJobToStop(Future<?> aFuture, String jobDescription) {
-	    if (aFuture != null) {
-	        try {
-	            aFuture.get(CoreConstants.SECONDS_TO_WAIT_FOR_COMPRESSION_JOBS, TimeUnit.SECONDS);
-	        } catch (TimeoutException e) {
-	            addError("Timeout while waiting for " + jobDescription + " job to finish", e);
-	        } catch (Exception e) {
-	            addError("Unexpected exception while waiting for " + jobDescription + " job to finish", e);
-	        }
+    private void waitForAsynchronousJobToStop(Future<?> aFuture, String jobDescription) {
+	if (aFuture != null) {
+	    try {
+	        aFuture.get(CoreConstants.SECONDS_TO_WAIT_FOR_COMPRESSION_JOBS, TimeUnit.SECONDS);
+	    } catch (TimeoutException e) {
+	        addError("Timeout while waiting for " + jobDescription + " job to finish", e);
+	    } catch (Exception e) {
+	        addError("Unexpected exception while waiting for " + jobDescription + " job to finish", e);
 	    }
+	}
 
         lastPeriod = getLastPeriod();
     }
