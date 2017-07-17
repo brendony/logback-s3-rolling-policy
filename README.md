@@ -51,12 +51,14 @@ Add the `logback-s3-rolling-policy` dependency to your pom file:
 </dependency>
 ```
 
-or to your gradle:
-dependencies {
- compile 'com.amazonaws:aws-java-sdk-s3:1.11.140'
+or to your gradle (below example exclude all aws libraries as they may have already been choosen):
+```xml
+compile ('ch.qos.logback:logback-s3-rolling-policy:1.7') {
+    exclude group: 'com.amazonaws'
 }
+```
 
-Make sure to update the version to the wanted version.
+Make sure to update the version accordingly.
 
 Configuration
 -------------
