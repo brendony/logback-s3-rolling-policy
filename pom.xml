@@ -4,32 +4,41 @@
     <!-- PROJECT METADATA -->
     <groupId>ch.qos.logback</groupId>
     <artifactId>logback-s3-rolling-policy</artifactId>
-    <version>1.8.4</version>
+    <version>1.9</version>
 
     <!-- ORGANIZATION & DEVELOPERS -->
     <organization>
-        <name>Xiplinx Technologies Ltd.</name>
+        <name>SAS C6</name>
+        <url>http://www.c6.eu</url>
     </organization>
     <developers>
         <developer>
-            <id>nickspacek</id>
-            <name>Nick Spacek</name>
-            <email>nick.spacek@xiplinx.com</email>
+            <id>supportc6</id>
+            <name>Support C6</name>
+            <email>support@c6.eu</email>
             <roles>
                 <role>development</role>
             </roles>
-            <timezone>-4</timezone>
+            <timezone>+1</timezone>
         </developer>
     </developers>
 
     <!-- CODE MANAGEMENT -->
     <scm>
         <tag>HEAD</tag>
-        <url>https://git@github.com/nickspacek/logback-s3-rolling-policy</url>
-        <connection>scm:git:ssh://git@github.com/nickspacek/logback-s3-rolling-policy</connection>
+        <url>https://git@github.com/SupportC6/logback-s3-rolling-policy</url>
+        <connection>scm:git:ssh://git@github.com/SupportC6/logback-s3-rolling-policy</connection>
     </scm>
 
     <!-- DISTRIBUTION AND DEPLOYMENT -->
+    <distributionManagement>
+	  <repository>
+	     <id>releases</id>
+	     <name>Releases</name>
+	     <url>http://venus:8081/nexus/content/repositories/releases</url>
+	  </repository>
+	</distributionManagement>
+    
     <reporting>
         <outputDirectory>target/site</outputDirectory>
         <plugins>
@@ -54,16 +63,16 @@
         <maven-compiler-plugin.version>2.0.2</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>2.9</maven-surefire-plugin.version>
         <maven-surefire-report-plugin.version>2.5</maven-surefire-report-plugin.version>
-        <maven-deploy-plugin.version>2.7-7l</maven-deploy-plugin.version>
+        <maven-deploy-plugin.version>2.7</maven-deploy-plugin.version>
         <maven-assembly-plugin.version>2.2-beta-5</maven-assembly-plugin.version>
         <maven-dependency-plugin.version>2.2</maven-dependency-plugin.version>
         <maven-javadoc-plugin.version>2.8.1</maven-javadoc-plugin.version>
         <maven-source-plugin.version>2.0.4</maven-source-plugin.version>
 
-        <aws-java-sdk.version>1.11.7</aws-java-sdk.version>
-        <logback.version>1.2.1</logback.version>
+        <aws-java-sdk.version>1.11.140</aws-java-sdk.version>
+        <logback.version>1.2.3</logback.version>
         <javax-servlet.version>2.4</javax-servlet.version>
-        <google-guava.version>18.0</google-guava.version>
+        <google-guava.version>22.0</google-guava.version>
         <jetbrains-annotations.version>15.0</jetbrains-annotations.version>
 
     </properties>
@@ -283,10 +292,14 @@
 
         <dependency>
             <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk</artifactId>
+            <artifactId>aws-java-sdk-core</artifactId>
             <version>${aws-java-sdk.version}</version>
         </dependency>
-
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-s3</artifactId>
+            <version>${aws-java-sdk.version}</version>
+        </dependency>
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
