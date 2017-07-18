@@ -16,15 +16,6 @@
 
 package ch.qos.logback.core.rolling.aws;
 
-import ch.qos.logback.core.rolling.data.CustomData;
-import ch.qos.logback.core.rolling.shutdown.RollingPolicyShutdownListener;
-import ch.qos.logback.core.rolling.util.IdentifierUtil;
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.S3ClientOptions;
-import com.amazonaws.util.StringUtils;
-
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -33,6 +24,20 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import ch.qos.logback.core.rolling.data.CustomData;
+import ch.qos.logback.core.rolling.shutdown.RollingPolicyShutdownListener;
+import ch.qos.logback.core.rolling.util.IdentifierUtil;
+
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.S3ClientOptions;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.util.StringUtils;
 
 
 /**
@@ -53,7 +58,7 @@ public class AmazonS3ClientImpl implements RollingPolicyShutdownListener {
 
     private final String identifier;
 
-    private AmazonS3Client  amazonS3Client;
+    private AmazonS3  amazonS3Client;
     private ExecutorService executor;
 
     public AmazonS3ClientImpl(String awsAccessKey, String awsSecretKey, String s3BucketName, String s3FolderName, String s3Endpoint, boolean prefixTimestamp,
@@ -85,19 +90,16 @@ public class AmazonS3ClientImpl implements RollingPolicyShutdownListener {
 
             // If the access and secret key is not specified then try to use other providers
             if (getAwsAccessKey() == null || getAwsAccessKey().trim().isEmpty()) {
-
-                amazonS3Client = new AmazonS3Client();
+                amazonS3Client = AmazonS3ClientBuilder.defaultClient();
             } else {
-
-                AWSCredentials cred = new BasicAWSCredentials( getAwsAccessKey(), getAwsSecretKey() );
-                amazonS3Client = new AmazonS3Client( cred );
+                AWSCredentialsProvider cred = new AWSStaticCredentialsProvider(new BasicAWSCredentials( getAwsAccessKey(), getAwsSecretKey()));
+                amazonS3Client =  AmazonS3ClientBuilder.standard().withCredentials(cred).build();
             }
 
             if(!StringUtils.isNullOrEmpty(getS3Endpoint()) && !getS3Endpoint().equals("S3_ENDPOINT_IS_UNDEFINED")) {
                 amazonS3Client.setEndpoint(getS3Endpoint());
 
-                // this allows us to point the client to http://endpoint/bucketname instead of http://bucketname.endpoint
-                // which fits perfectly to minio.
+                // this allows us to point the client to http://endpoint/bucketname instead of http://bucketname.endpoint.
                 final S3ClientOptions clientOptions = S3ClientOptions.builder().setPathStyleAccess(true).build();
                 amazonS3Client.setS3ClientOptions(clientOptions);
             }
@@ -145,8 +147,7 @@ public class AmazonS3ClientImpl implements RollingPolicyShutdownListener {
             public void run() {
 
                 try {
-
-                    amazonS3Client.putObject( getS3BucketName(), s3ObjectName.toString(), file );
+                    amazonS3Client.putObject(new PutObjectRequest(getS3BucketName(), s3ObjectName.toString(), file).withCannedAcl(CannedAccessControlList.BucketOwnerFullControl));
                 }
                 catch (Exception ex) {
 
