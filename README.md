@@ -7,7 +7,7 @@ There are 2 rolling policies which can be used:
 * `S3FixedWindowRollingPolicy`
 * `S3TimeBasedRollingPolicy`
 
-logback-s3-rolling-policy was forked from logback-s3 (https://github.com/shuwada/logback-s3) but transfered into a new project because changes were getting too big.
+logback-s3-rolling-policy was forked from AOEpeople/logback-s3-rolling-policy (https://github.com/AOEpeople/logback-s3-rolling-policy). The initial project lead (link-nv/logback-s3-rolling-policy) did a good job but did not updated the dependency version nor the documentation/repository. AOEpeople did, but still we want to make sure the exact version of our dependency are into places.
 
 Index
 -----
@@ -40,7 +40,16 @@ Add your own distribution management repository
 	</distributionManagement>
 ```
 
-If need credential to deploy, set it up into your Maven settings.xml.
+If the repository needs credential to deploy, you must set them into your Maven's settings.xml.
+```xml
+<servers>
+	<server>
+	    <id><repo id></id>
+	    <username><username></username>
+	    <password>*******</password>
+	</server>
+</servers>
+```
 
 Add the `logback-s3-rolling-policy` dependency to your pom file:
 ```xml
@@ -51,9 +60,9 @@ Add the `logback-s3-rolling-policy` dependency to your pom file:
 </dependency>
 ```
 
-or to your gradle (below example exclude all aws libraries as they may have already been choosen):
-```xml
-compile ('ch.qos.logback:logback-s3-rolling-policy:1.7') {
+or to your gradle (below example, excludes all aws libraries as they may have already been retrieved by the project):
+```json
+compile ('ch.qos.logback:logback-s3-rolling-policy:1.9') {
     exclude group: 'com.amazonaws'
 }
 ```
@@ -70,6 +79,8 @@ Whether you implement one of any available S3 policies, the following extra vari
 * `awsAccessKey` Your AWS access key.
 * `awsSecretKey` Your AWS secret key.
 * `s3BucketName` The S3 bucket name to upload your log files to.
+
+If AWS keys are not being provided, a default AWS client will be created but it can only work if the deployed logic and logback setup are being used from an ElasticBeanStalk environment.
 
 There are few optional variables:
 
@@ -187,15 +198,21 @@ This project uses the following libraries:
 * `ch.qos.logback:logback-classic:1.2.3`
 * `com.google.guava:guava:22.0`
 * `javax.servlet:servlet-api:2.4` (scope provided)
-* `org.jetbrains:annotations:7.0.2` (scope provided)
+* `org.jetbrains:annotations:15.0` (scope provided)
 
 Publish to Artifactory
 ----------------------
 
-For now we only have a manual way to publish this to Artifactory
+To manually publish this to Artifactory
 
 * raise the `<version>` number in the `pom.xml`
 * go to your local repo directory
 * (install maven)
 * execute `mvn package` (this adds a jar file to the /target folder)
-* upload the created package to Artifactory by hand (make sure to check `Generate Default POM / Deploy Jar's Internal POM` when uploading) (It will be automatically done if you provided your local distribution repository)
+* upload the created package to Artifactory by hand (make sure to check `Generate Default POM / Deploy Jar's Internal POM` when uploading) 
+
+To automatically publish this to a maven repository
+* raise the `<version>` number in the `pom.xml`
+* setup the credential (if needed) of your local repo in your settings, as explain above
+* setup a local distribution repository, as explain above
+* From your IDE or from script, execute `mvn deploy`
