@@ -32,22 +32,22 @@ Usage
 Add your own distribution management repository
 ```xml
 <distributionManagement>
-	  <repository>
-	     <id><repo id></id>
-	     <name><repo_name></name>
-	     <url>http://<server:port>/<path_to_repository></url>
-	  </repository>
-	</distributionManagement>
+   <repository>
+      <id><repo id></id>
+      <name><repo_name></name>
+      <url>http://<server:port>/<path_to_repository></url>
+    </repository>
+</distributionManagement>
 ```
 
 If the repository needs credential to deploy, you must set them into your Maven's settings.xml.
 ```xml
 <servers>
-	<server>
-	    <id><repo id></id>
-	    <username><username></username>
-	    <password>*******</password>
-	</server>
+   <server>
+      <id><repo id></id>
+      <username><username></username>
+      <password>*******</password>
+   </server>
 </servers>
 ```
 
@@ -56,13 +56,13 @@ Add the `logback-s3-rolling-policy` dependency to your pom file:
 <dependency>
     <groupId>ch.qos.logback</groupId>
     <artifactId>logback-s3-rolling-policy</artifactId>
-    <version>1.7</version>
+    <version>2.0</version>
 </dependency>
 ```
 
 or to your gradle (below example, excludes all aws libraries as they may have already been retrieved by the project):
 ```json
-compile ('ch.qos.logback:logback-s3-rolling-policy:1.9') {
+compile ('ch.qos.logback:logback-s3-rolling-policy:2.0') {
     exclude group: 'com.amazonaws'
 }
 ```
@@ -126,6 +126,7 @@ An example `logback.xml` appender for each available policy using `RollingFileAp
     <fileNamePattern>logs/myapp.%i.log.gz</fileNamePattern>
     <awsAccessKey>ACCESS_KEY</awsAccessKey>
     <awsSecretKey>SECRET_KEY</awsSecretKey>
+    <awsRegion>eu-west-1</awsRegion>
     <s3BucketName>myapp-logging</s3BucketName>
     <s3FolderName>logs/%d{yyyy/MM/dd}</s3FolderName>
     <rolloverOnExit>true</rolloverOnExit>
@@ -152,6 +153,7 @@ In this example you'll find the logs at `myapp-logging/logs/2015/08/18/`.
     <fileNamePattern>logs/myapp.%d{yyyy-MM-dd_HH-mm}.%i.log.gz</fileNamePattern>
     <awsAccessKey>ACCESS_KEY</awsAccessKey>
     <awsSecretKey>SECRET_KEY</awsSecretKey>
+    <awsRegion>eu-west-1</awsRegion>
     <s3BucketName>myapp-logging</s3BucketName>
     <s3FolderName>log</s3FolderName>
     <rolloverOnExit>true</rolloverOnExit>
