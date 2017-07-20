@@ -78,6 +78,7 @@ Whether you implement one of any available S3 policies, the following extra vari
 
 * `awsAccessKey` Your AWS access key.
 * `awsSecretKey` Your AWS secret key.
+* `awsRegion`     Your AWS region.
 * `s3BucketName` The S3 bucket name to upload your log files to.
 
 If AWS keys are not being provided, a default AWS client will be created but it can only work if the deployed logic and logback setup are being used from an ElasticBeanStalk environment.

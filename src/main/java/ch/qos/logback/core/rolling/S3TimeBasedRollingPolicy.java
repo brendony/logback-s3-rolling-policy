@@ -16,12 +16,6 @@
 
 package ch.qos.logback.core.rolling;
 
-import ch.qos.logback.core.CoreConstants;
-import ch.qos.logback.core.rolling.aws.AmazonS3ClientImpl;
-import ch.qos.logback.core.rolling.shutdown.RollingPolicyShutdownListener;
-import ch.qos.logback.core.rolling.shutdown.ShutdownHookType;
-import ch.qos.logback.core.rolling.shutdown.ShutdownHookUtil;
-
 import java.io.File;
 import java.util.Date;
 import java.util.concurrent.ExecutorService;
@@ -30,279 +24,294 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import ch.qos.logback.core.CoreConstants;
+import ch.qos.logback.core.rolling.aws.AmazonS3ClientImpl;
+import ch.qos.logback.core.rolling.shutdown.RollingPolicyShutdownListener;
+import ch.qos.logback.core.rolling.shutdown.ShutdownHookType;
+import ch.qos.logback.core.rolling.shutdown.ShutdownHookUtil;
 
 /**
- * User: gvhoecke <gianni.vanhoecke@lin-k.net>
- * Date: 13/07/15
- * Time: 16:53
+ * User: gvhoecke <gianni.vanhoecke@lin-k.net> Date: 13/07/15 Time: 16:53
  */
 public class S3TimeBasedRollingPolicy<E> extends TimeBasedRollingPolicy<E> implements RollingPolicyShutdownListener {
 
-    private String           awsAccessKey;
-    private String           awsSecretKey;
-    private String           s3BucketName;
-    private String           s3FolderName;
-    private String           s3Endpoint;
-    private ShutdownHookType shutdownHookType;
-    private boolean          rolloverOnExit;
-    private boolean          prefixTimestamp;
-    private boolean          prefixIdentifier;
+	private String awsAccessKey;
+	private String awsSecretKey;
+	private String awsRegion;
+	private String s3BucketName;
+	private String s3FolderName;
+	private String s3Endpoint;
+	private ShutdownHookType shutdownHookType;
+	private boolean rolloverOnExit;
+	private boolean prefixTimestamp;
+	private boolean prefixIdentifier;
 
-    private AmazonS3ClientImpl s3Client;
-    private ExecutorService    executor;
+	private AmazonS3ClientImpl s3Client;
+	private ExecutorService executor;
 
-    private Date lastPeriod;
+	private Date lastPeriod;
 
-    public S3TimeBasedRollingPolicy() {
+	public S3TimeBasedRollingPolicy() {
 
-        super();
+		super();
 
-        rolloverOnExit = false;
-        shutdownHookType = ShutdownHookType.NONE;
-        prefixTimestamp = false;
-        prefixIdentifier = false;
+		rolloverOnExit = false;
+		shutdownHookType = ShutdownHookType.NONE;
+		prefixTimestamp = false;
+		prefixIdentifier = false;
 
-        executor = Executors.newFixedThreadPool( 1 );
+		executor = Executors.newFixedThreadPool(1);
 
-        lastPeriod = new Date();
-    }
-
-    @Override
-    public void start() {
-
-        super.start();
-
-        lastPeriod = getLastPeriod();
-
-        //Init S3 client
-        s3Client = new AmazonS3ClientImpl( getAwsAccessKey(), getAwsSecretKey(), getS3BucketName(), getS3FolderName(), getS3Endpoint(), isPrefixTimestamp(),
-                isPrefixIdentifier());
-
-        if (isPrefixIdentifier()) {
-
-            addInfo( "Using identifier prefix \"" + s3Client.getIdentifier() + "\"" );
-        }
-
-        //Register shutdown hook so the log gets uploaded on shutdown, if needed
-        ShutdownHookUtil.registerShutdownHook( this, getShutdownHookType() );
-    }
-
-    @Override
-    public void rollover()
-            throws RolloverFailure {
-
-        if (timeBasedFileNamingAndTriggeringPolicy.getElapsedPeriodsFileName() != null) {
-
-            final String elapsedPeriodsFileName = String.format( "%s%s", timeBasedFileNamingAndTriggeringPolicy.getElapsedPeriodsFileName(),
-                    getFileNameSuffix() );
-
-            super.rollover();
-
-            //Queue upload the current log file into S3
-            //Because we need to wait for the file to be rolled over, use a thread so this doesn't block.
-            executor.execute( new UploadQueuer( elapsedPeriodsFileName, lastPeriod ) );
-        } else {
-
-            //Upload the active log file without rolling
-            s3Client.uploadFileToS3Async( getActiveFileName(), lastPeriod, true );
-        }
-    }
-
-    public Date getLastPeriod() {
-
-        Date lastPeriod = ((TimeBasedFileNamingAndTriggeringPolicyBase<E>) timeBasedFileNamingAndTriggeringPolicy).dateInCurrentPeriod;
-
-        if (getParentsRawFileProperty() != null) {
-
-            File file = new File( getParentsRawFileProperty() );
-
-            if (file.exists() && file.canRead()) {
-
-                lastPeriod = new Date( file.lastModified() );
-            }
-        }
-
-        return lastPeriod;
-    }
-
-    /**
-     * Shutdown hook that gets called when exiting the application.
-     */
-    @Override
-    public void doShutdown() {
-
-        if (isRolloverOnExit()) {
-
-            //Do rolling and upload the rolled file on exit
-            rollover();
-        } else {
-
-            //Upload the active log file without rolling
-            s3Client.uploadFileToS3Async( getActiveFileName(), lastPeriod, true );
-        }
-
-        //Shutdown executor
-        try {
-
-            executor.shutdown();
-            executor.awaitTermination( 10, TimeUnit.MINUTES );
-        }
-        catch (InterruptedException e) {
-
-            executor.shutdownNow();
-        }
-
-        //Wait until finishing the upload
-        s3Client.doShutdown();
-    }
-
-    private void waitForAsynchronousJobToStop(Future<?> aFuture, String jobDescription) {
-	if (aFuture != null) {
-	    try {
-	        aFuture.get(CoreConstants.SECONDS_TO_WAIT_FOR_COMPRESSION_JOBS, TimeUnit.SECONDS);
-	    } catch (TimeoutException e) {
-	        addError("Timeout while waiting for " + jobDescription + " job to finish", e);
-	    } catch (Exception e) {
-	        addError("Unexpected exception while waiting for " + jobDescription + " job to finish", e);
-	    }
+		lastPeriod = new Date();
 	}
 
-        lastPeriod = getLastPeriod();
-    }
+	@Override
+	public void start() {
 
-    private String getFileNameSuffix() {
+		super.start();
 
-        switch (compressionMode) {
+		lastPeriod = getLastPeriod();
 
-            case GZ:
+		// Init S3 client
+		s3Client = new AmazonS3ClientImpl(getAwsAccessKey(), getAwsSecretKey(), getAwsRegion(), getS3BucketName(), getS3FolderName(), getS3Endpoint(), isPrefixTimestamp(), isPrefixIdentifier());
 
-                return ".gz";
+		if (isPrefixIdentifier()) {
 
-            case ZIP:
+			addInfo("Using identifier prefix \"" + s3Client.getIdentifier() + "\"");
+		}
 
-                return ".zip";
+		// Register shutdown hook so the log gets uploaded on shutdown, if needed
+		ShutdownHookUtil.registerShutdownHook(this, getShutdownHookType());
+	}
 
-            case NONE:
-            default:
+	@Override
+	public void rollover() throws RolloverFailure {
 
-                return "";
-        }
-    }
+		if (timeBasedFileNamingAndTriggeringPolicy.getElapsedPeriodsFileName() != null) {
 
-    class UploadQueuer implements Runnable {
+			final String elapsedPeriodsFileName = String.format("%s%s", timeBasedFileNamingAndTriggeringPolicy.getElapsedPeriodsFileName(), getFileNameSuffix());
 
-        private final String elapsedPeriodsFileName;
-        private final Date   date;
+			super.rollover();
 
-        public UploadQueuer(final String elapsedPeriodsFileName, final Date date) {
+			// Queue upload the current log file into S3
+			// Because we need to wait for the file to be rolled over, use a thread so this doesn't block.
+			executor.execute(new UploadQueuer(elapsedPeriodsFileName, lastPeriod));
+		}
+		else {
 
-            this.elapsedPeriodsFileName = elapsedPeriodsFileName;
-            this.date = date;
-        }
+			// Upload the active log file without rolling
+			s3Client.uploadFileToS3Async(getActiveFileName(), lastPeriod, true);
+		}
+	}
 
-        @Override
-        public void run() {
+	public Date getLastPeriod() {
 
-            try {
+		Date lastPeriod = ((TimeBasedFileNamingAndTriggeringPolicyBase<E>) timeBasedFileNamingAndTriggeringPolicy).dateInCurrentPeriod;
 
-                waitForAsynchronousJobToStop(compressionFuture, "compression");
-                waitForAsynchronousJobToStop(cleanUpFuture, "clean-up");
-                s3Client.uploadFileToS3Async( elapsedPeriodsFileName, date );
-            }
-            catch (Exception ex) {
+		if (getParentsRawFileProperty() != null) {
 
-                ex.printStackTrace();
-            }
-        }
-    }
+			File file = new File(getParentsRawFileProperty());
 
-    public String getAwsAccessKey() {
+			if (file.exists() && file.canRead()) {
 
-        return awsAccessKey;
-    }
+				lastPeriod = new Date(file.lastModified());
+			}
+		}
 
-    public void setAwsAccessKey(String awsAccessKey) {
+		return lastPeriod;
+	}
 
-        this.awsAccessKey = awsAccessKey;
-    }
+	/**
+	 * Shutdown hook that gets called when exiting the application.
+	 */
+	@Override
+	public void doShutdown() {
 
-    public String getAwsSecretKey() {
+		if (isRolloverOnExit()) {
 
-        return awsSecretKey;
-    }
+			// Do rolling and upload the rolled file on exit
+			rollover();
+		}
+		else {
 
-    public void setAwsSecretKey(String awsSecretKey) {
+			// Upload the active log file without rolling
+			s3Client.uploadFileToS3Async(getActiveFileName(), lastPeriod, true);
+		}
 
-        this.awsSecretKey = awsSecretKey;
-    }
+		// Shutdown executor
+		try {
 
-    public String getS3BucketName() {
+			executor.shutdown();
+			executor.awaitTermination(10, TimeUnit.MINUTES);
+		}
+		catch (InterruptedException e) {
 
-        return s3BucketName;
-    }
+			executor.shutdownNow();
+		}
 
-    public void setS3BucketName(String s3BucketName) {
+		// Wait until finishing the upload
+		s3Client.doShutdown();
+	}
 
-        this.s3BucketName = s3BucketName;
-    }
+	private void waitForAsynchronousJobToStop(Future<?> aFuture, String jobDescription) {
+		if (aFuture != null) {
+			try {
+				aFuture.get(CoreConstants.SECONDS_TO_WAIT_FOR_COMPRESSION_JOBS, TimeUnit.SECONDS);
+			}
+			catch (TimeoutException e) {
+				addError("Timeout while waiting for " + jobDescription + " job to finish", e);
+			}
+			catch (Exception e) {
+				addError("Unexpected exception while waiting for " + jobDescription + " job to finish", e);
+			}
+		}
 
-    public String getS3FolderName() {
+		lastPeriod = getLastPeriod();
+	}
 
-        return s3FolderName;
-    }
+	private String getFileNameSuffix() {
 
-    public void setS3FolderName(String s3FolderName) {
+		switch (compressionMode) {
 
-        this.s3FolderName = s3FolderName;
-    }
+		case GZ:
 
-    public String getS3Endpoint() {
+			return ".gz";
 
-        return s3Endpoint;
-    }
+		case ZIP:
 
-    public void setS3Endpoint(String s3Endpoint) {
+			return ".zip";
 
-        this.s3Endpoint = s3Endpoint;
-    }
+		case NONE:
+		default:
 
-    public boolean isRolloverOnExit() {
+			return "";
+		}
+	}
 
-        return rolloverOnExit;
-    }
+	class UploadQueuer implements Runnable {
 
-    public void setRolloverOnExit(boolean rolloverOnExit) {
+		private final String elapsedPeriodsFileName;
+		private final Date date;
 
-        this.rolloverOnExit = rolloverOnExit;
-    }
+		public UploadQueuer(final String elapsedPeriodsFileName, final Date date) {
 
-    public ShutdownHookType getShutdownHookType() {
+			this.elapsedPeriodsFileName = elapsedPeriodsFileName;
+			this.date = date;
+		}
 
-        return shutdownHookType;
-    }
+		@Override
+		public void run() {
 
-    public void setShutdownHookType(ShutdownHookType shutdownHookType) {
+			try {
 
-        this.shutdownHookType = shutdownHookType;
-    }
+				waitForAsynchronousJobToStop(compressionFuture, "compression");
+				waitForAsynchronousJobToStop(cleanUpFuture, "clean-up");
+				s3Client.uploadFileToS3Async(elapsedPeriodsFileName, date);
+			}
+			catch (Exception ex) {
 
-    public boolean isPrefixTimestamp() {
+				ex.printStackTrace();
+			}
+		}
+	}
 
-        return prefixTimestamp;
-    }
+	public String getAwsAccessKey() {
 
-    public void setPrefixTimestamp(boolean prefixTimestamp) {
+		return awsAccessKey;
+	}
 
-        this.prefixTimestamp = prefixTimestamp;
-    }
+	public void setAwsAccessKey(String awsAccessKey) {
 
-    public boolean isPrefixIdentifier() {
+		this.awsAccessKey = awsAccessKey;
+	}
 
-        return prefixIdentifier;
-    }
+	public String getAwsRegion() {
 
-    public void setPrefixIdentifier(boolean prefixIdentifier) {
+		return awsRegion;
+	}
 
-        this.prefixIdentifier = prefixIdentifier;
-    }
+	public void setAwsRegion(String awsRegion) {
+
+		this.awsRegion = awsRegion;
+	}
+
+	public String getAwsSecretKey() {
+
+		return awsSecretKey;
+	}
+
+	public void setAwsSecretKey(String awsSecretKey) {
+
+		this.awsSecretKey = awsSecretKey;
+	}
+
+	public String getS3BucketName() {
+
+		return s3BucketName;
+	}
+
+	public void setS3BucketName(String s3BucketName) {
+
+		this.s3BucketName = s3BucketName;
+	}
+
+	public String getS3FolderName() {
+
+		return s3FolderName;
+	}
+
+	public void setS3FolderName(String s3FolderName) {
+
+		this.s3FolderName = s3FolderName;
+	}
+
+	public String getS3Endpoint() {
+
+		return s3Endpoint;
+	}
+
+	public void setS3Endpoint(String s3Endpoint) {
+
+		this.s3Endpoint = s3Endpoint;
+	}
+
+	public boolean isRolloverOnExit() {
+
+		return rolloverOnExit;
+	}
+
+	public void setRolloverOnExit(boolean rolloverOnExit) {
+
+		this.rolloverOnExit = rolloverOnExit;
+	}
+
+	public ShutdownHookType getShutdownHookType() {
+
+		return shutdownHookType;
+	}
+
+	public void setShutdownHookType(ShutdownHookType shutdownHookType) {
+
+		this.shutdownHookType = shutdownHookType;
+	}
+
+	public boolean isPrefixTimestamp() {
+
+		return prefixTimestamp;
+	}
+
+	public void setPrefixTimestamp(boolean prefixTimestamp) {
+
+		this.prefixTimestamp = prefixTimestamp;
+	}
+
+	public boolean isPrefixIdentifier() {
+
+		return prefixIdentifier;
+	}
+
+	public void setPrefixIdentifier(boolean prefixIdentifier) {
+
+		this.prefixIdentifier = prefixIdentifier;
+	}
 }

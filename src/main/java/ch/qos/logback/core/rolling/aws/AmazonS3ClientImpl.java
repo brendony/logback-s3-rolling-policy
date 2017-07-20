@@ -25,13 +25,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import ch.qos.logback.core.rolling.data.CustomData;
-import ch.qos.logback.core.rolling.shutdown.RollingPolicyShutdownListener;
-import ch.qos.logback.core.rolling.util.IdentifierUtil;
-
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.S3ClientOptions;
@@ -39,199 +37,217 @@ import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.util.StringUtils;
 
+import ch.qos.logback.core.rolling.data.CustomData;
+import ch.qos.logback.core.rolling.shutdown.RollingPolicyShutdownListener;
+import ch.qos.logback.core.rolling.util.IdentifierUtil;
 
 /**
- * User: gvhoecke <gianni.vanhoecke@lin-k.net>
- * Date: 14/07/15
- * Time: 08:28
+ * User: gvhoecke <gianni.vanhoecke@lin-k.net> Date: 14/07/15 Time: 08:28
  */
 public class AmazonS3ClientImpl implements RollingPolicyShutdownListener {
 
-    private final String awsAccessKey;
-    private final String awsSecretKey;
-    private final String s3BucketName;
-    private final String s3FolderName;
-    private final String s3Endpoint;
+	private final String awsAccessKey;
+	private final String awsSecretKey;
+	private final String awsRegion;
+	private final String s3BucketName;
+	private final String s3FolderName;
+	private final String s3Endpoint;
 
-    private final boolean prefixTimestamp;
-    private final boolean prefixIdentifier;
+	private final boolean prefixTimestamp;
+	private final boolean prefixIdentifier;
 
-    private final String identifier;
+	private final String identifier;
 
-    private AmazonS3  amazonS3Client;
-    private ExecutorService executor;
+	private AmazonS3 amazonS3Client;
+	private ExecutorService executor;
 
-    public AmazonS3ClientImpl(String awsAccessKey, String awsSecretKey, String s3BucketName, String s3FolderName, String s3Endpoint, boolean prefixTimestamp,
-                              boolean prefixIdentifier) {
+	public AmazonS3ClientImpl(String awsAccessKey, String awsSecretKey, String awsRegion, String s3BucketName, String s3FolderName, String s3Endpoint, boolean prefixTimestamp, boolean prefixIdentifier) {
 
-        this.awsAccessKey = awsAccessKey;
-        this.awsSecretKey = awsSecretKey;
-        this.s3BucketName = s3BucketName;
-        this.s3FolderName = s3FolderName;
-        this.s3Endpoint = s3Endpoint;
+		this.awsAccessKey = awsAccessKey;
+		this.awsSecretKey = awsSecretKey;
+		this.awsRegion = awsRegion;
+		this.s3BucketName = s3BucketName;
+		this.s3FolderName = s3FolderName;
+		this.s3Endpoint = s3Endpoint;
 
-        this.prefixTimestamp = prefixTimestamp;
-        this.prefixIdentifier = prefixIdentifier;
+		this.prefixTimestamp = prefixTimestamp;
+		this.prefixIdentifier = prefixIdentifier;
 
-        executor = Executors.newFixedThreadPool( 1 );
-        amazonS3Client = null;
+		executor = Executors.newFixedThreadPool(1);
+		amazonS3Client = null;
 
-        identifier = prefixIdentifier? IdentifierUtil.getIdentifier(): null;
-    }
+		identifier = prefixIdentifier ? IdentifierUtil.getIdentifier() : null;
+	}
 
-    public void uploadFileToS3Async(final String filename, final Date date) {
+	public void uploadFileToS3Async(final String filename, final Date date) {
 
-        uploadFileToS3Async( filename, date, false );
-    }
+		uploadFileToS3Async(filename, date, false);
+	}
 
-    public void uploadFileToS3Async(final String filename, final Date date, final boolean overrideTimestampSetting) {
+	public void uploadFileToS3Async(final String filename, final Date date, final boolean overrideTimestampSetting) {
 
-        if (amazonS3Client == null) {
+		if (amazonS3Client == null) {
 
-            // If the access and secret key is not specified then try to use other providers
-            if (getAwsAccessKey() == null || getAwsAccessKey().trim().isEmpty()) {
-                amazonS3Client = AmazonS3ClientBuilder.defaultClient();
-            } else {
-                AWSCredentialsProvider cred = new AWSStaticCredentialsProvider(new BasicAWSCredentials( getAwsAccessKey(), getAwsSecretKey()));
-                amazonS3Client =  AmazonS3ClientBuilder.standard().withCredentials(cred).build();
-            }
+			// If the access and secret key is not specified then try to use other providers
+			if (getAwsAccessKey() == null || getAwsAccessKey().trim().isEmpty()) {
+				// amazonS3Client = AmazonS3ClientBuilder.defaultClient();
 
-            if(!StringUtils.isNullOrEmpty(getS3Endpoint()) && !getS3Endpoint().equals("S3_ENDPOINT_IS_UNDEFINED")) {
-                amazonS3Client.setEndpoint(getS3Endpoint());
+				ClientConfiguration clientConfiguration = new ClientConfiguration();
 
-                // this allows us to point the client to http://endpoint/bucketname instead of http://bucketname.endpoint.
-                final S3ClientOptions clientOptions = S3ClientOptions.builder().setPathStyleAccess(true).build();
-                amazonS3Client.setS3ClientOptions(clientOptions);
-            }
-        }
+				AmazonS3ClientBuilder amazonS3ClientBuilder = AmazonS3ClientBuilder.standard().withClientConfiguration(clientConfiguration);
 
-        final File file = new File( filename );
+				amazonS3ClientBuilder.withCredentials(InstanceProfileCredentialsProvider.getInstance());
 
-        //If file does not exist or if empty, do nothing
-        if (!file.exists() || file.length() == 0) {
+				if (awsRegion != null && awsRegion.length() != 0)
+					amazonS3ClientBuilder.withRegion(awsRegion);
 
-            return;
-        }
+				amazonS3Client = amazonS3ClientBuilder.build();
+			}
+			else {
+				AWSCredentialsProvider cred = new AWSStaticCredentialsProvider(new BasicAWSCredentials(getAwsAccessKey(), getAwsSecretKey()));
+				amazonS3Client = AmazonS3ClientBuilder.standard().withCredentials(cred).withRegion(getAwsRegion()).build();
+			}
 
-        //Build S3 path
-        final StringBuffer s3ObjectName = new StringBuffer();
-        if (getS3FolderName() != null) {
+			if (!StringUtils.isNullOrEmpty(getS3Endpoint()) && !getS3Endpoint().equals("S3_ENDPOINT_IS_UNDEFINED")) {
+				amazonS3Client.setEndpoint(getS3Endpoint());
 
-            s3ObjectName.append( format( getS3FolderName(), date ) ).append( "/" );
-        }
+				// this allows us to point the client to http://endpoint/bucketname instead of http://bucketname.endpoint.
+				final S3ClientOptions clientOptions = S3ClientOptions.builder().setPathStyleAccess(true).build();
+				amazonS3Client.setS3ClientOptions(clientOptions);
+			}
+		}
 
-        //Extra custom S3 (runtime) folder?
-        if (CustomData.extraS3Folder.get() != null) {
+		final File file = new File(filename);
 
-            s3ObjectName.append( CustomData.extraS3Folder.get() ).append( "/" );
-        }
+		// If file does not exist or if empty, do nothing
+		if (!file.exists() || file.length() == 0) {
 
-        //Add timestamp prefix if desired
-        if (prefixTimestamp || overrideTimestampSetting) {
+			return;
+		}
 
-            s3ObjectName.append( new SimpleDateFormat( "yyyyMMdd_HHmmss" ).format( date ) ).append( "_" );
-        }
+		// Build S3 path
+		final StringBuffer s3ObjectName = new StringBuffer();
+		if (getS3FolderName() != null) {
 
-        //Add identifier prefix if desired
-        if (prefixIdentifier) {
+			s3ObjectName.append(format(getS3FolderName(), date)).append("/");
+		}
 
-            s3ObjectName.append( identifier ).append( "_" );
-        }
+		// Extra custom S3 (runtime) folder?
+		if (CustomData.extraS3Folder.get() != null) {
 
-        s3ObjectName.append( file.getName() );
+			s3ObjectName.append(CustomData.extraS3Folder.get()).append("/");
+		}
 
-        //Queue thread to upload
-        Runnable uploader = new Runnable() {
+		// Add timestamp prefix if desired
+		if (prefixTimestamp || overrideTimestampSetting) {
 
-            @Override
-            public void run() {
+			s3ObjectName.append(new SimpleDateFormat("yyyyMMdd_HHmmss").format(date)).append("_");
+		}
 
-                try {
-                    amazonS3Client.putObject(new PutObjectRequest(getS3BucketName(), s3ObjectName.toString(), file).withCannedAcl(CannedAccessControlList.BucketOwnerFullControl));
-                }
-                catch (Exception ex) {
+		// Add identifier prefix if desired
+		if (prefixIdentifier) {
 
-                    ex.printStackTrace();
-                }
-            }
-        };
+			s3ObjectName.append(identifier).append("_");
+		}
 
-        executor.execute( uploader );
-    }
+		s3ObjectName.append(file.getName());
 
-    /**
-     * Shutdown hook that gets called when exiting the application.
-     */
-    @Override
-    public void doShutdown() {
+		// Queue thread to upload
+		Runnable uploader = new Runnable() {
 
-        try {
+			@Override
+			public void run() {
 
-            //Wait until finishing the upload
-            executor.shutdown();
-            executor.awaitTermination( 10, TimeUnit.MINUTES );
-        }
-        catch (InterruptedException e) {
+				try {
+					amazonS3Client.putObject(new PutObjectRequest(getS3BucketName(), s3ObjectName.toString(), file).withCannedAcl(CannedAccessControlList.BucketOwnerFullControl));
+				}
+				catch (Exception ex) {
 
-            executor.shutdownNow();
-        }
-    }
+					ex.printStackTrace();
+				}
+			}
+		};
 
-    private String format(String s, Date date) {
+		executor.execute(uploader);
+	}
 
-        Pattern pattern = Pattern.compile( "%d\\{(.*?)\\}" );
-        Matcher matcher = pattern.matcher( s );
+	/**
+	 * Shutdown hook that gets called when exiting the application.
+	 */
+	@Override
+	public void doShutdown() {
 
-        while (matcher.find()) {
+		try {
 
-            String match = matcher.group( 1 );
+			// Wait until finishing the upload
+			executor.shutdown();
+			executor.awaitTermination(10, TimeUnit.MINUTES);
+		}
+		catch (InterruptedException e) {
 
-            SimpleDateFormat simpleDateFormat = new SimpleDateFormat( match );
-            String replace = simpleDateFormat.format( date );
+			executor.shutdownNow();
+		}
+	}
 
-            s = s.replace( String.format( "%%d{%s}", match ), replace );
-        }
+	private String format(String s, Date date) {
 
-        return s;
-    }
+		Pattern pattern = Pattern.compile("%d\\{(.*?)\\}");
+		Matcher matcher = pattern.matcher(s);
 
-    public String getAwsAccessKey() {
+		while (matcher.find()) {
 
-        return awsAccessKey;
-    }
+			String match = matcher.group(1);
 
-    public String getAwsSecretKey() {
+			SimpleDateFormat simpleDateFormat = new SimpleDateFormat(match);
+			String replace = simpleDateFormat.format(date);
 
-        return awsSecretKey;
-    }
+			s = s.replace(String.format("%%d{%s}", match), replace);
+		}
 
-    public String getS3BucketName() {
+		return s;
+	}
 
-        return s3BucketName;
-    }
+	public String getAwsAccessKey() {
 
-    public String getS3FolderName() {
+		return awsAccessKey;
+	}
 
-        return s3FolderName;
-    }
+	public String getAwsRegion() {
+		return awsRegion;
+	}
 
-    public String getS3Endpoint() {
+	public String getAwsSecretKey() {
 
-        return s3Endpoint;
-    }
+		return awsSecretKey;
+	}
 
-    public boolean isPrefixTimestamp() {
+	public String getS3BucketName() {
 
-        return prefixTimestamp;
-    }
+		return s3BucketName;
+	}
 
-    public boolean isPrefixIdentifier() {
+	public String getS3FolderName() {
 
-        return prefixIdentifier;
-    }
+		return s3FolderName;
+	}
 
-    public String getIdentifier() {
+	public String getS3Endpoint() {
 
-        return identifier;
-    }
+		return s3Endpoint;
+	}
+
+	public boolean isPrefixTimestamp() {
+
+		return prefixTimestamp;
+	}
+
+	public boolean isPrefixIdentifier() {
+
+		return prefixIdentifier;
+	}
+
+	public String getIdentifier() {
+
+		return identifier;
+	}
 }
