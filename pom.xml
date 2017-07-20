@@ -4,7 +4,7 @@
     <!-- PROJECT METADATA -->
     <groupId>ch.qos.logback</groupId>
     <artifactId>logback-s3-rolling-policy</artifactId>
-    <version>1.9</version>
+    <version>2.0</version>
 
     <!-- ORGANIZATION & DEVELOPERS -->
     <organization>
